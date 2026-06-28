@@ -35,26 +35,29 @@ jobs:
 
     - name: Build, tag, and push Frontend image
       id: build-frontend
-      # IE4: Authenticate to ECR, build Docker image, tag with GitHub SHA, push
+      # IE4: Authenticate to ECR, build Docker image, tag with VERSION, push
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$FRONTEND_REPO_NAME:$IMAGE_TAG ./front-despacho
-        docker push $ECR_REGISTRY/$FRONTEND_REPO_NAME:$IMAGE_TAG
-        echo "FRONTEND_IMAGE=$ECR_REGISTRY/$FRONTEND_REPO_NAME:$IMAGE_TAG" >> $GITHUB_ENV
+        FRONT_VERSION=$(cat front-despacho/VERSION)
+        docker build -t $ECR_REGISTRY/$FRONTEND_REPO_NAME:$FRONT_VERSION ./front-despacho
+        docker push $ECR_REGISTRY/$FRONTEND_REPO_NAME:$FRONT_VERSION
 
-    - name: Build, tag, and push Backend image
+    - name: Build, tag, and push Backend images (Ventas and Despachos)
       id: build-backend
-      # IE4: Authenticate to ECR, build Docker image, tag with GitHub SHA, push
+      # IE4: Authenticate to ECR, build Docker images, tag with VERSION, push
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Using back-ventas-springboot as the primary backend based on the 2 repo constraint
-        docker build -t $ECR_REGISTRY/$BACKEND_REPO_NAME:$IMAGE_TAG ./back-ventas-springboot
-        docker push $ECR_REGISTRY/$BACKEND_REPO_NAME:$IMAGE_TAG
-        echo "BACKEND_IMAGE=$ECR_REGISTRY/$BACKEND_REPO_NAME:$IMAGE_TAG" >> $GITHUB_ENV
+        # Ventas Backend (tag prefixed with 'ventas-')
+        VENTAS_VERSION=$(cat back-ventas-springboot/VERSION)
+        docker build -t $ECR_REGISTRY/$BACKEND_REPO_NAME:ventas-$VENTAS_VERSION ./back-ventas-springboot/api-rest-ventas
+        docker push $ECR_REGISTRY/$BACKEND_REPO_NAME:ventas-$VENTAS_VERSION
+        
+        # Despachos Backend (tag prefixed with 'despachos-')
+        DESPACHOS_VERSION=$(cat back-bespachos-springboot/VERSION)
+        docker build -t $ECR_REGISTRY/$BACKEND_REPO_NAME:despachos-$DESPACHOS_VERSION ./back-bespachos-springboot/api-rest-despacho
+        docker push $ECR_REGISTRY/$BACKEND_REPO_NAME:despachos-$DESPACHOS_VERSION
 
     - name: Update kubeconfig
       # IE4: Update kubeconfig to interact with the EKS cluster
@@ -62,16 +65,29 @@ jobs:
         aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
     - name: Deploy to Amazon EKS
-      # IE4: Deploy without downtime by replacing the image placeholder with the SHA-tagged image
+      # IE4: Deploy without downtime by replacing the image placeholder with the DEPLOY_VERSION tagged image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
+        FRONT_DEPLOY_VERSION=$(cat front-despacho/DEPLOY_VERSION)
+        VENTAS_DEPLOY_VERSION=$(cat back-ventas-springboot/DEPLOY_VERSION)
+        DESPACHOS_DEPLOY_VERSION=$(cat back-bespachos-springboot/DEPLOY_VERSION)
+        
+        FRONTEND_IMAGE="$ECR_REGISTRY/$FRONTEND_REPO_NAME:$FRONT_DEPLOY_VERSION"
+        VENTAS_IMAGE="$ECR_REGISTRY/$BACKEND_REPO_NAME:ventas-$VENTAS_DEPLOY_VERSION"
+        DESPACHOS_IMAGE="$ECR_REGISTRY/$BACKEND_REPO_NAME:despachos-$DESPACHOS_DEPLOY_VERSION"
+        
         sed -i "s|<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/frontend-repo:latest|${FRONTEND_IMAGE}|g" k8s/frontend.yaml
-        sed -i "s|<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest|${BACKEND_IMAGE}|g" k8s/backend.yaml
+        sed -i "s|<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest|${VENTAS_IMAGE}|g" k8s/backend.yaml
+        sed -i "s|<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest-despachos|${DESPACHOS_IMAGE}|g" k8s/backend-despachos.yaml
         
         kubectl apply -f k8s/backend.yaml
+        kubectl apply -f k8s/backend-despachos.yaml
         kubectl apply -f k8s/frontend.yaml
 
     - name: Verify Deployment Rollout
       # IE4: Validate the rollout status
       run: |
         kubectl rollout status deployment/backend -n default --timeout=120s
+        kubectl rollout status deployment/backend-despachos -n default --timeout=120s
         kubectl rollout status deployment/frontend -n default --timeout=120s

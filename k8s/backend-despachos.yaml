@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: backend-despachos
   labels:
-    app: backend
+    app: backend-despachos
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: backend
+      app: backend-despachos
   template:
     metadata:
       labels:
-        app: backend
+        app: backend-despachos
     spec:
       containers:
-      - name: backend
-        image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest
+      - name: backend-despachos
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest-despachos
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -31,11 +31,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-service
+  name: backend-despachos-service
 spec:
   type: ClusterIP
   selector:
-    app: backend
+    app: backend-despachos
   ports:
   - port: 80
     targetPort: 8080
@@ -43,12 +43,12 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: backend-hpa
+  name: backend-despachos-hpa
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: backend
+    name: backend-despachos
   minReplicas: 2
   maxReplicas: 10
   metrics:

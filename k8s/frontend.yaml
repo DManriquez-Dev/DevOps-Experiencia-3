@@ -16,13 +16,11 @@ spec:
     spec:
       containers:
       - name: frontend
-        # Image placeholder, replaced by CI/CD GitHub Actions
         image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/frontend-repo:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
         env:
-        # IE2: Frontend connecting to Backend via internal DNS
         - name: BACKEND_URL
           value: "http://backend-service.default.svc.cluster.local"
         resources:
@@ -38,7 +36,6 @@ kind: Service
 metadata:
   name: frontend-service
 spec:
-  # IE2: LoadBalancer to expose the service to generate a public URL
   type: LoadBalancer
   selector:
     app: frontend
@@ -63,8 +60,4 @@ spec:
       name: cpu
       target:
         type: Utilization
-        # IE3: Target Tracking to 50% CPU utilization
         averageUtilization: 50
-  # IE3 Rationale: Target Tracking is set to 50% CPU utilization.
-  # This ensures proactive scaling under sudden traffic spikes so 
-  # the frontend can handle the load without degradation.
