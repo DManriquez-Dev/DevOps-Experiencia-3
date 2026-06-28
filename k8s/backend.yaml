@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        # Image placeholder, replaced by CI/CD GitHub Actions
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  # IE2: ClusterIP for internal DNS communication
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        # IE3: Target Tracking to 50% CPU utilization
+        averageUtilization: 50
+  # IE3 Rationale: Target Tracking is set to 50% CPU utilization.
+  # This aggressive threshold ensures that new pods are provisioned quickly 
+  # during sudden traffic spikes, maintaining responsiveness before the existing 
+  # pods get overwhelmed.

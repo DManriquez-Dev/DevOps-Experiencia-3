@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        # Image placeholder, replaced by CI/CD GitHub Actions
+        image: <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/frontend-repo:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+        env:
+        # IE2: Frontend connecting to Backend via internal DNS
+        - name: BACKEND_URL
+          value: "http://backend-service.default.svc.cluster.local"
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  # IE2: LoadBalancer to expose the service to generate a public URL
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        # IE3: Target Tracking to 50% CPU utilization
+        averageUtilization: 50
+  # IE3 Rationale: Target Tracking is set to 50% CPU utilization.
+  # This ensures proactive scaling under sudden traffic spikes so 
+  # the frontend can handle the load without degradation.

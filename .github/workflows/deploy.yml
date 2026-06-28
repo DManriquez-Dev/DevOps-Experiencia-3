@@ -1,0 +1,77 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: devops-eks-cluster
+  FRONTEND_REPO_NAME: frontend-repo
+  BACKEND_REPO_NAME: backend-repo
+
+jobs:
+  build-and-deploy:
+    name: Build, Push, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      # IE5: Securely using GitHub Secrets for AWS Academy authentication
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push Frontend image
+      id: build-frontend
+      # IE4: Authenticate to ECR, build Docker image, tag with GitHub SHA, push
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/$FRONTEND_REPO_NAME:$IMAGE_TAG ./front-despacho
+        docker push $ECR_REGISTRY/$FRONTEND_REPO_NAME:$IMAGE_TAG
+        echo "FRONTEND_IMAGE=$ECR_REGISTRY/$FRONTEND_REPO_NAME:$IMAGE_TAG" >> $GITHUB_ENV
+
+    - name: Build, tag, and push Backend image
+      id: build-backend
+      # IE4: Authenticate to ECR, build Docker image, tag with GitHub SHA, push
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Using back-ventas-springboot as the primary backend based on the 2 repo constraint
+        docker build -t $ECR_REGISTRY/$BACKEND_REPO_NAME:$IMAGE_TAG ./back-ventas-springboot
+        docker push $ECR_REGISTRY/$BACKEND_REPO_NAME:$IMAGE_TAG
+        echo "BACKEND_IMAGE=$ECR_REGISTRY/$BACKEND_REPO_NAME:$IMAGE_TAG" >> $GITHUB_ENV
+
+    - name: Update kubeconfig
+      # IE4: Update kubeconfig to interact with the EKS cluster
+      run: |
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+    - name: Deploy to Amazon EKS
+      # IE4: Deploy without downtime by replacing the image placeholder with the SHA-tagged image
+      run: |
+        sed -i "s|<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/frontend-repo:latest|${FRONTEND_IMAGE}|g" k8s/frontend.yaml
+        sed -i "s|<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/backend-repo:latest|${BACKEND_IMAGE}|g" k8s/backend.yaml
+        
+        kubectl apply -f k8s/backend.yaml
+        kubectl apply -f k8s/frontend.yaml
+
+    - name: Verify Deployment Rollout
+      # IE4: Validate the rollout status
+      run: |
+        kubectl rollout status deployment/backend -n default --timeout=120s
+        kubectl rollout status deployment/frontend -n default --timeout=120s
