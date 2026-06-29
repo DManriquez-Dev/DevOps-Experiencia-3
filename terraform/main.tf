@@ -11,16 +11,11 @@ provider "aws" {
   region = var.aws_region
 }
 
-# ------------------------------------------------------------------------------
-# Existing LabRole for AWS Academy
-# ------------------------------------------------------------------------------
 data "aws_iam_role" "lab_role" {
   name = "LabRole"
 }
 
-# ------------------------------------------------------------------------------
-# VPC and Networking
-# ------------------------------------------------------------------------------
+# VPC
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
@@ -47,9 +42,7 @@ module "vpc" {
   }
 }
 
-# ------------------------------------------------------------------------------
 # Security Group
-# ------------------------------------------------------------------------------
 resource "aws_security_group" "eks_cluster_sg" {
   name        = "${var.cluster_name}-cluster-sg"
   description = "Security group for EKS cluster"
@@ -74,9 +67,7 @@ resource "aws_security_group" "eks_cluster_sg" {
   }
 }
 
-# ------------------------------------------------------------------------------
-# EKS Cluster
-# ------------------------------------------------------------------------------
+# EKS
 resource "aws_eks_cluster" "main" {
   name     = var.cluster_name
   role_arn = data.aws_iam_role.lab_role.arn
@@ -88,9 +79,7 @@ resource "aws_eks_cluster" "main" {
   }
 }
 
-# ------------------------------------------------------------------------------
-# EKS Node Group
-# ------------------------------------------------------------------------------
+# Node Group
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.cluster_name}-node-group"
@@ -110,9 +99,7 @@ resource "aws_eks_node_group" "main" {
   }
 }
 
-# ------------------------------------------------------------------------------
-# ECR Repositories (Frontend and Backend as requested)
-# ------------------------------------------------------------------------------
+# ECR
 resource "aws_ecr_repository" "frontend" {
   name                 = "frontend-repo"
   image_tag_mutability = "MUTABLE"
