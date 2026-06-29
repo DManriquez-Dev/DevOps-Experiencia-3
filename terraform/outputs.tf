@@ -22,3 +22,8 @@ output "ecr_repository_backend_url" {
   description = "URL of the backend ECR repository"
   value       = aws_ecr_repository.backend.repository_url
 }
+
+output "rds_endpoint" {
+  description = "RDS instance endpoint"
+  value       = aws_db_instance.main.address
+}

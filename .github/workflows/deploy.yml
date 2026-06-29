@@ -88,6 +88,6 @@ jobs:
     - name: Verify Deployment Rollout
       # IE4: Validate the rollout status
       run: |
-        kubectl rollout status deployment/backend -n default --timeout=120s
-        kubectl rollout status deployment/backend-despachos -n default --timeout=120s
-        kubectl rollout status deployment/frontend -n default --timeout=120s
+        kubectl rollout status deployment/backend -n default --timeout=300s
+        kubectl rollout status deployment/backend-despachos -n default --timeout=300s
+        kubectl rollout status deployment/frontend -n default --timeout=300s

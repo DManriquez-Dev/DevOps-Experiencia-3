@@ -46,13 +46,27 @@ spec:
             secretKeyRef:
               name: db-secret
               key: password
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 6
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15
+          failureThreshold: 3
         resources:
           requests:
             cpu: "250m"
-            memory: "256Mi"
+            memory: "512Mi"
           limits:
             cpu: "500m"
-            memory: "512Mi"
+            memory: "1Gi"
 ---
 apiVersion: v1
 kind: Service

@@ -9,3 +9,21 @@ variable "cluster_name" {
   type        = string
   default     = "devops-eks-cluster"
 }
+
+variable "db_name" {
+  description = "RDS database name"
+  type        = string
+  default     = "appdb"
+}
+
+variable "db_username" {
+  description = "RDS master username"
+  type        = string
+  default     = "admin"
+}
+
+variable "db_password" {
+  description = "RDS master password"
+  type        = string
+  sensitive   = true
+}
