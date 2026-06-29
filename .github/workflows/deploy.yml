@@ -84,6 +84,8 @@ jobs:
         kubectl apply -f k8s/backend.yaml
         kubectl apply -f k8s/backend-despachos.yaml
         kubectl apply -f k8s/frontend.yaml
+        kubectl apply -f k8s/cloudwatch-agent.yaml
+        kubectl apply -f k8s/cloudwatch-agent.yaml
 
     - name: Verify Deployment Rollout
       # IE4: Validate the rollout status

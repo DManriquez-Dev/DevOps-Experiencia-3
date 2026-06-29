@@ -77,6 +77,8 @@ resource "aws_eks_cluster" "main" {
     subnet_ids         = concat(module.vpc.public_subnets, module.vpc.private_subnets)
     security_group_ids = [aws_security_group.eks_cluster_sg.id]
   }
+
+  enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 }
 
 # Node Group
